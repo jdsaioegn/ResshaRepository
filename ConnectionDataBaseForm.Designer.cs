@@ -137,7 +137,7 @@
             this.buttonConnection.UseVisualStyleBackColor = true;
             this.buttonConnection.Click += new System.EventHandler(this.ClickConnectionButton);
             // 
-            // StartUpForm
+            // ConnectionDataBaseForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -152,9 +152,8 @@
             this.Controls.Add(this.labelConnectionType);
             this.Controls.Add(this.labelDatabaseName);
             this.Controls.Add(this.labelHostName);
-            this.Name = "StartUpForm";
+            this.Name = "ConnectionDataBaseForm";
             this.Text = "接続先DB選択";
-            this.Load += new System.EventHandler(this.LoadForm);
             this.ResumeLayout(false);
             this.PerformLayout();
 

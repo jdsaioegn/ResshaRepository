@@ -68,6 +68,9 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="ConnectionDataBaseForm.resx">
+      <DependentUpon>ConnectionDataBaseForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="PasswordForm.resx">
       <DependentUpon>PasswordForm.cs</DependentUpon>
     </EmbeddedResource>

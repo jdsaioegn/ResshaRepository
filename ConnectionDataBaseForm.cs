@@ -13,133 +13,199 @@ using System.Xml.Linq;
 
 namespace ResshaDataBaseTools
 {
+    /// =======================================================================
+    /// クラス名 ： ConnectionDataBaseForm
     /// <summary>
     /// 指定先データベース接続画面
     /// </summary>
+    /// <remarks>
+    /// □ユーザが指定したデータベースへの接続を行う画面である。
+    /// □本画面には以下のメソッドが存在する。
+    ///     □ConnectionDataBaseForm
+    ///         □コンポーネント初期化処理
+    ///     □GetSettingXML
+    ///         □設定ファイル読み込み
+    ///     □Click_btnCon
+    ///         □「接続」ボタンを押下イベント
+    /// </remarks>
+    /// <history>
+    /// =======================================================================
+    /// 更新履歴
+    /// 項番　　　更新日付　　担当者　　更新内容
+    /// 0001　　　2020/03/01  鶴　見    新規作成     
+    /// =======================================================================
+    /// </history>
     public partial class ConnectionDataBaseForm : Form
     {
-        /// <summary>
-        /// トレースロガー
-        /// </summary>
-        private readonly log4net.ILog _logger = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-
-        /// <summary>
-        /// 最終接続ユーザ自動ログイン機能フラグ
-        /// </summary>
+        #region グローバル変数
+        /// <summary>トレースロガー</summary>
+        private readonly log4net.ILog logger = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+        /// <summary>最終接続ユーザ自動ログイン機能フラグ</summary>
         private string _PreservationUserFlg = "";
-
-        /// <summary>
-        /// ログインパスワード
-        /// </summary>
+        /// <summary>ログインパスワード</summary>
         private string _Password = "";
+        /// <summary>設定オブジェクト</summary>
+        SettingFile setting;
 
+        #endregion
+
+        #region FORM初期化
+        /// =======================================================================
+        /// コンストラクタ名 ： ConnectionDataBaseForm
         /// <summary>
-        /// コンストラクタ
+        /// コンポーネント初期化処理
         /// </summary>
+        /// <remarks>
+        /// □指定先データベース接続画面のコントロールを初期化する。
+        /// </remarks>
+        /// <history>
+        /// =======================================================================
+        /// 更新履歴
+        /// 項番　　　更新日付　　担当者　　更新内容
+        /// 0001　　　2020/03/01  鶴　見    新規作成     
+        /// =======================================================================
+        /// </history>
         public ConnectionDataBaseForm()
         {
             InitializeComponent();
+
+            // 設定ファイル読込
+            setting = new SettingFile();
+
+            // 接続方式に"Windows"が設定されている場合
+            if (setting.ConnectionType == "Windows")
+            {
+                // 接続方式初期選択を「Windows認証」に設定
+                radioButtonWindowsConnection.Checked = true;
+            }
+            // 接続方式に"SQL"が設定されている場合
+            else if (setting.ConnectionType == "SQL")
+            {
+                // 接続方式初期選択を「SQL Server認証」に設定
+                radioButtonSQLConnection.Checked = true;
+            }
+            // 接続方式に上記以外が設定されている場合
+            else
+            {
+
+            }
+
+            // ログインユーザ記憶機能がONである場合
+            if (setting.PreservationUserFlg == "ON")
+            {
+                // 隠し設定ファイル読込
+                HiddenSettingFile _setting = new HiddenSettingFile();
+                // ログインユーザ名設定
+                textBoxLoginUserName.Text = _setting.LastUserName;
+                // ログインパスワード設定
+                _Password = _setting.LastUserPassword;
+            }
+            // ログインユーザ記憶機能がOFFである場合
+            else if (setting.PreservationUserFlg == "OFF")
+            {
+                // 隠し設定ファイルを初期化
+                SaveHiddenSettingFile("", "");
+            }
+            // ログインユーザ記憶機能に上記以外が設定されている場合
+            else
+            {
+
+            }
+
+            // 接続先ホスト名一覧設定
+            comboBoxHostName.DataSource = setting.HostNameMaster;
+            // 接続先データベース名一覧設定
+            comboBoxDatabaseName.DataSource = setting.DatabaseNameMaster;
         }
 
-        #region 初期表示設定
+        #endregion
+
+        #region イベント
+
+        #region 接続方式切替時発生イベント
+        /// =======================================================================
+        /// メソッド名 ： ChangeRadioBtn
         /// <summary>
-        /// 画面起動時発生イベント
+        /// 接続方式切替時発生イベント
         /// </summary>
-        /// <param name="sender">イベント発生元</param>
+        /// <remarks>
+        /// □接続方式「Windows認証」が選択された場合ログインユーザ入力項目を活性化
+        /// </remarks>
+        /// <param name="sender">イベント発生元オブジェクト</param>
         /// <param name="e">イベント情報</param>
-        private void LoadForm(object sender, EventArgs e)
+        /// <history>
+        /// =======================================================================
+        /// 更新履歴
+        /// 項番　　　更新日付　　担当者　　更新内容
+        /// 0001　　　2020/03/01  鶴　見    新規作成     
+        /// =======================================================================
+        /// </history>
+        private void ChangeCheckedRadioButton(object sender, EventArgs e)
         {
-            // 外部設定ファイル読み込み
-            SettingFile xml = new SettingFile();
+            // イベント発生元オブジェクトをラジオボタン型へキャスト
+            RadioButton radio = (RadioButton)sender;
 
-            // ConnectionType要素設定解析
-            switch (xml.ConnectionType)
+            // Windows認証が選択された場合
+            if (radio.Checked == true)
             {
-                // "Windows"が設定されている場合
-                case "Windows":
-                    // Windows認証側のチェックボックスを初期表示でチェック済
-                    radioButtonWindowsConnection.Checked = true;
-                    // 抜け
-                    break;
-
-                // "SQL"が設定されている場合
-                case "SQL":
-                    // SQL Server認証側のチェックボックスを初期表示でチェック済
-                    radioButtonSQLConnection.Checked = true;
-                    // ログインユーザ入力項目を活性化
-                    textBoxLoginUserName.Enabled = true;
-                    // 抜け
-                    break;
-
-                // "(その他)"が設定されている場合
-                default:
-                    // エラーログ出力
-                    _logger.Error("外部設定ファイル「要素：ConnectionType」設定値不備");
-                    // 処理終了
-                    return;
+                // ログインユーザ名入力項目を非活性化
+                textBoxLoginUserName.Enabled = false;
             }
-
-            // 最終接続ユーザ自動ログイン機能フラグ更新
-            _PreservationUserFlg = xml.PreservationUserFlg;
-
-            // PreservationUserFlg要素設定値解析
-            switch (_PreservationUserFlg)
+            // SQL認証が選択された場合
+            else
             {
-                // "ON"が設定されている場合
-                case "ON":
-                    // 隠し設定ファイル用インスタンス生成
-                    HiddenSettingFile _xml = new HiddenSettingFile();
-                    // 最終接続ユーザ名取得
-                    textBoxLoginUserName.Text = _xml.LastUserName;
-                    // 最終接続ユーザログインパスワード取得
-                    _Password = _xml.LastUserPassword;
-                    // 抜け
-                    break;
-
-                // "OFF"が設定されている場合
-                case "OFF":
-                    // 隠し設定ファイル設定内容初期化
-                    SaveHiddenSettingFile("", "");
-                    // 抜け
-                    break;
-
-                // "（その他）"が設定されている場合
-                default:
-                    // エラーログ出力
-                    _logger.Error("外部設定ファイル「要素：PreservationUserFlg」設定値不備");
-                    // 処理終了
-                    return;
+                // ログインユーザ名入力項目を活性化
+                textBoxLoginUserName.Enabled = true;
             }
-
-            // 接続先ホスト名マスタ設定
-            comboBoxHostName.DataSource = xml.HostNameMaster;
-
-            // 接続先DB名マスタ設定
-            comboBoxDatabaseName.DataSource = xml.DbNameMaster;
         }
-        #endregion 初期表示設定
+
+        #endregion
 
         #region 接続ボタン押下
+        /// =======================================================================
+        /// メソッド名 ： ClickConnectionButton
         /// <summary>
-        /// 接続ボタン押下時発生イベント
+        /// 「接続」ボタン押下時発生イベント
         /// </summary>
-        /// <param name="sender">イベント発生元</param>
+        /// <remarks>
+        /// □接続方式の「Windows認証」が選択されている場合
+        ///     □ 接続情報を用いてWindows認証を試行する。
+        /// □接続方式の「SQL Server認証」が選択されている場合
+        ///     □ ログインユーザ記憶機能がOFFである場合
+        ///         □ パスワードの入力専用画面を表示する。
+        ///         □ パスワードの入力結果を取得する。
+        ///     □ 接続情報を用いてSQL Server認証を試行する。
+        /// □接続が失敗した場合
+        ///     □ 接続失敗のメッセージを表示し再度接続情報の入力を促す。
+        /// □接続が成功した場合
+        ///     □ ログインユーザ記憶機能がONである場合
+        ///         □ 隠し設定ファイルを今回ログイン情報で更新する。
+        ///     □ 試験用統合DB編集ツールのポータル画面に遷移する。
+        /// </remarks>
+        /// <param name="sender">イベント発生元オブジェクト</param>
         /// <param name="e">イベント情報</param>
+        /// <history>
+        /// =======================================================================
+        /// 更新履歴
+        /// 項番　　　更新日付　　担当者　　更新内容
+        /// 0001　　　2020/03/01  鶴　見    新規作成     
+        /// =======================================================================
+        /// </history>
         private void ClickConnectionButton(object sender, EventArgs e)
         {
             // DB接続用文字列設定用
             string cmd;
 
-            // Windows認証による接続の場合
+            // 接続方式の「Windows認証」が選択されている場合
             if (radioButtonWindowsConnection.Checked == true)
             {
                 // DB接続用文字列設定（Windows認証用）
-                cmd = string.Format(DatabaseConnectionCommand.CONNECTION_WINDOWS_AUTHENTICATION, comboBoxHostName.Text, comboBoxDatabaseName.Text);
+                cmd = string.Format(DatabaseConnectionCommandTemplate.CONNECTION_WINDOWS_AUTHENTICATION, comboBoxHostName.Text, comboBoxDatabaseName.Text);
             }
-            // SQL Server認証による接続の場合
+            // 接続方式の「SQL Server認証」が選択されている場合
             else
             {
-                // パスワードが設定されていない場合（最終接続ユーザ自動ログイン機能フラグがOFFであるため）
+                // パスワードが設定されていない場合（ログインユーザ記憶機能がOFFである場合）
                 if (string.IsNullOrEmpty(_Password))
                 {
                     // パスワード入力専用画面の生成
@@ -151,10 +217,10 @@ namespace ResshaDataBaseTools
                 }
 
                 // DB接続用文字列設定（SQL Server認証用）
-                cmd = string.Format(DatabaseConnectionCommand.CONNECTION_SQL_AUTHENTICATION, comboBoxHostName.Text, comboBoxDatabaseName.Text, textBoxLoginUserName.Text, _Password);
+                cmd = string.Format(DatabaseConnectionCommandTemplate.CONNECTION_SQL_AUTHENTICATION, comboBoxHostName.Text, comboBoxDatabaseName.Text, textBoxLoginUserName.Text, _Password);
             }
 
-            // 指定再DB接続処理が失敗した場合
+            // 指定先DB接続処理が失敗した場合
             if (new DbContext().TryConnection(cmd) == false)
             {
                 // パスワード初期化
@@ -164,113 +230,38 @@ namespace ResshaDataBaseTools
                 // 処理終了
                 return;
             }
+            // 指定先DB接続処理が成功した場合
+            else
+            {
+                // 隠し設定ファイルを今回のログイン情報で更新
+                SaveHiddenSettingFile(textBoxLoginUserName.Text, _Password);
+            }
         }
         #endregion
 
-        #region 設定ファイル各機能
+        #endregion
 
+        #region メソッド
+
+        #region 隠し設定ファイル更新
+        /// =======================================================================
+        /// メソッド名 ： SaveHiddenSettingFile
         /// <summary>
-        /// 設定ファイル設定値読込
+        /// 隠し設定ファイル更新
         /// </summary>
-        class SettingFile
-        {
-            /// <summary>
-            /// 最終接続方式
-            /// </summary>
-            public string ConnectionType { get; set; }
-
-            /// <summary>
-            /// 最終接続ユーザ入力省略機能フラグ
-            /// </summary>
-            public string PreservationUserFlg { get; set; }
-
-            /// <summary>
-            /// 接続先ホスト名マスタ
-            /// </summary>
-            public List<string> HostNameMaster { get; set; }
-
-            /// <summary>
-            /// 接続先DB名マスタ
-            /// </summary>
-            public List<string> DbNameMaster { get; set; }
-
-            /// <summary>
-            /// コンストラクタ
-            /// </summary>
-            public SettingFile()
-            {
-                // 外部設定ファイルパス指定
-                XElement xml = XElement.Load(@".\Config.xml");
-
-                // 設定値の取得
-                IEnumerable<XElement> config = from item in xml.Elements("Config") select item;
-
-                // 設定値の解析
-                foreach (XElement node in config)
-                {
-                    // 接続方式
-                    ConnectionType = node.Element("ConnectionType").Value;
-
-                    // 最終接続ユーザ入力省略機能フラグ
-                    PreservationUserFlg = node.Element("PreservationUserFlg").Value;
-
-                    // 接続先ホスト名マスタ
-                    IEnumerable<XElement> hostnode = from item in node.Elements("HostMast") select item;
-                    // 接続先ホスト名マスタにデータバインド
-                    HostNameMaster = hostnode.Elements("Value").Select(p => p.Value).ToList();
-
-                    // 接続先DB名マスタ
-                    IEnumerable<XElement> databasenode = from item in node.Elements("DataBaseMast") select item;
-                    // 接続先DB名マスタにデータバインド
-                    DbNameMaster = databasenode.Elements("Value").Select(p => p.Value).ToList();
-                }
-            }
-        }
-
-        /// <summary>
-        /// 隠し設定ファイル設定値読込
-        /// </summary>
-        class HiddenSettingFile
-        {
-            /// <summary>
-            /// 最終ログインユーザ名
-            /// </summary>
-            public string LastUserName { get; set; }
-
-            /// <summary>
-            /// 最終ログインユーザパスワード
-            /// </summary>
-            public string LastUserPassword { get; set; }
-
-            /// <summary>
-            /// コンストラクタ
-            /// </summary>
-            public HiddenSettingFile()
-            {
-                // 外部設定ファイルパス指定
-                XElement xml = XElement.Load(@".\_Config.xml");
-
-                // 設定値の取得
-                IEnumerable<XElement> config = from item in xml.Elements("Config") select item;
-
-                // 設定値の解析
-                foreach (XElement node in config)
-                {
-                    // 最終接続ユーザ
-                    LastUserName = node.Element("LastUser").Value;
-
-                    // 最終接続ユーザログイン用パスワード
-                    LastUserPassword = node.Element("Password").Value;
-                }
-            }
-        }
-
-        /// <summary>
-        /// 隠し設定ファイル設定値更新
-        /// </summary>
-        /// <param name="setLastUser">ユーザ名</param>
-        /// <param name="setPassword">パスワード</param>
-        private void SaveHiddenSettingFile(string setLastUser, string setPassword)
+        /// <remarks>
+        /// □引数で取得した文字列を用いて隠し設定ファイルを更新する。
+        /// </remarks>
+        /// <param name="setuser">設定ユーザ名</param>
+        /// <param name="setpass">設定パスワード</param>
+        /// <history>
+        /// =======================================================================
+        /// 更新履歴
+        /// 項番　　　更新日付　　担当者　　更新内容
+        /// 0001　　　2020/03/01  鶴　見    新規作成     
+        /// =======================================================================
+        /// </history>
+        private void SaveHiddenSettingFile(string setuser, string setpass)
         {
             // 設定ファイル（隠しファイル）の属性を一時的に変更するため取得
             FileInfo _fileinfo = new FileInfo(@".\_Config.xml");
@@ -286,9 +277,9 @@ namespace ResshaDataBaseTools
             foreach (XElement _node in from item in _xml.Elements("Config") select item)
             {
                 // LastUser要素をユーザ名で更新
-                _node.Element("LastUser").Value = setLastUser;
+                _node.Element("LastUser").Value = setuser;
                 // Password要素をパスワードで更新
-                _node.Element("Password").Value = setPassword;
+                _node.Element("Password").Value = setpass;
                 // 更新を反映・保存
                 _xml.Save(@".\_Config.xml");
             }
@@ -298,32 +289,139 @@ namespace ResshaDataBaseTools
             // 設定ファイル（隠しファイル）へ隠しファイル属性を付与
             _fileinfo.Attributes |= FileAttributes.Hidden;
         }
-        #endregion 設定ファイル各機能
 
-        #region 汎用処理
+        #endregion
+
+        #endregion
+
+        #region 設定ファイルオブジェクト
+        // =======================================================================
+        /// クラス名 ： SettingFile
         /// <summary>
-        /// 接続方式切り替え時発生イベント（Windows認証選択側観点）
+        /// 設定ファイル管理用オブジェクト
         /// </summary>
-        /// <param name="sender">イベント発生元</param>
-        /// <param name="e">イベント情報</param>
-        private void ChangeCheckedRadioButton(object sender, EventArgs e)
+        /// <remarks>
+        /// 設定ファイルの設定内容を読み取るためのクラスである。
+        /// □本クラスは設定ファイルの読み込みと値の取得を行う。
+        /// □本クラスには以下のメソッドが存在する。
+        ///     □SettingFile
+        ///         □コンポーネント初期化処理
+        /// </remarks>
+        /// <history>
+        /// =======================================================================
+        /// 更新履歴
+        /// 項番　　　更新日付　　担当者　　更新内容
+        /// 0001　　　2020/03/01  鶴　見    新規作成     
+        /// =======================================================================
+        /// </history>
+        class SettingFile
         {
-            // イベント発生元オブジェクトを解析
-            RadioButton radio = (RadioButton)sender;
+            /// <summary>最終接続方式</summary>
+            public string ConnectionType { get; set; }
+            /// <summary>最終接続ユーザ入力省略機能フラグ</summary>
+            public string PreservationUserFlg { get; set; }
+            /// <summary>接続先ホスト名マスタ</summary>
+            public List<string> HostNameMaster { get; set; }
+            /// <summary>接続先DB名マスタ</summary>
+            public List<string> DatabaseNameMaster { get; set; }
 
-            // Windows認証が選択された場合
-            if (radio.Checked == true)
+            /// =======================================================================
+            /// コンストラクタ名 ： SettingFile
+            /// <summary>
+            /// コンポーネント初期化処理
+            /// </summary>
+            /// <remarks>
+            /// □設定ファイルの設定内容を取得する。
+            /// </remarks>
+            /// <history>
+            /// =======================================================================
+            /// 更新履歴
+            /// 項番　　　更新日付　　担当者　　更新内容
+            /// 0001　　　2020/03/01  鶴　見    新規作成     
+            /// =======================================================================
+            /// </history>
+            public SettingFile()
             {
-                // ログインユーザ名入力項目を非活性化
-                textBoxLoginUserName.Enabled = false;
-            }
-            // Windows認証以外が選択された場合
-            else
-            {
-                // ログインユーザ名入力項目を活性化
-                textBoxLoginUserName.Enabled = true;
+                // 外部設定ファイルパス指定
+                XElement xml = XElement.Load(@".\Config.xml");
+
+                // 設定値の解析
+                foreach (XElement node in from item in xml.Elements("Config") select item)
+                {
+                    // 接続方式読取
+                    ConnectionType = node.Element("ConnectionType").Value;
+                    // 最終接続ユーザ入力省略機能フラグ読取
+                    PreservationUserFlg = node.Element("PreservationUserFlg").Value;
+                    // 接続先ホスト名マスタ読取
+                    IEnumerable<XElement> hostnode = from item in node.Elements("HostMast") select item;
+                    HostNameMaster = hostnode.Elements("Value").Select(p => p.Value).ToList();
+                    // 接続先DB名マスタ読取
+                    IEnumerable<XElement> databasenode = from item in node.Elements("DataBaseMast") select item;
+                    DatabaseNameMaster = databasenode.Elements("Value").Select(p => p.Value).ToList();
+                }
             }
         }
+
+        #endregion
+
+        #region 隠し設定ファイルオブジェクト
+        /// =======================================================================
+        /// クラス名 ： HiddenSettingFile
+        /// <summary>
+        /// 隠し設定ファイル管理用オブジェクト
+        /// </summary>
+        /// <remarks>
+        /// 隠し設定ファイルの設定内容を読み取るためのクラスである。
+        /// □本クラスは隠し設定ファイルの読み込みと値の取得を行う。
+        /// □本クラスには以下のメソッドが存在する。
+        ///     □HiddenSettingFile
+        ///         □コンポーネント初期化処理
+        /// </remarks>
+        /// <history>
+        /// =======================================================================
+        /// 更新履歴
+        /// 項番　　　更新日付　　担当者　　更新内容
+        /// 0001　　　2020/03/01  鶴　見    新規作成     
+        /// =======================================================================
+        /// </history>
+        class HiddenSettingFile
+        {
+            /// <summary>最終ログインユーザ名</summary>
+            public string LastUserName { get; set; }
+            /// <summary>最終ログインユーザパスワード</summary>
+            public string LastUserPassword { get; set; }
+
+            /// =======================================================================
+            /// コンストラクタ名 ： HiddenSettingFile
+            /// <summary>
+            /// コンポーネント初期化処理
+            /// </summary>
+            /// <remarks>
+            /// □隠し設定ファイルの設定内容を取得する。
+            /// </remarks>
+            /// <history>
+            /// =======================================================================
+            /// 更新履歴
+            /// 項番　　　更新日付　　担当者　　更新内容
+            /// 0001　　　2020/03/01  鶴　見    新規作成     
+            /// =======================================================================
+            /// </history>
+            public HiddenSettingFile()
+            {
+                // 隠し設定ファイルパス指定（実効ファイルとの相対パス指定）
+                XElement xml = XElement.Load(@".\_Config.xml");
+
+                // 設定値の解析
+                foreach (XElement node in from item in xml.Elements("Config") select item)
+                {
+                    // 最終接続ユーザ
+                    LastUserName = node.Element("LastUser").Value;
+                    // 最終接続ユーザログイン用パスワード
+                    LastUserPassword = node.Element("Password").Value;
+                }
+            }
+        }
+
         #endregion
     }
 }
