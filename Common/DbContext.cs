@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Dapper;
+using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
@@ -83,6 +84,110 @@ namespace ResshaDataBaseTools.Common
             }
         }
 
+        #endregion
+
+        #region 参照コマンド実行
+        /// =======================================================================
+        /// メソッド名 ： SelectRecord
+        /// <summary>
+        /// 参照コマンド実効
+        /// </summary>
+        /// <typeparam name="MappingModel">マッピングクラス</typeparam>
+        /// <param name="cmd">参照コマンド</param>
+        /// <returns>参照コマンド実行結果マッピングリスト</returns>
+        /// <history>
+        /// =======================================================================
+        /// 更新履歴
+        /// 項番　　　更新日付　　担当者　　更新内容
+        /// 0001　　　2020/03/01  鶴　見    新規作成     
+        /// =======================================================================
+        /// </history>
+        internal List<MappingModel> SelectRecord<MappingModel>(string cmd)
+        {
+            // 取得レコード格納用
+            List<MappingModel> record;
+            // 接続開始
+            connection.Open();
+
+            // 例外検知
+            try
+            {
+                // レコード取得
+                record = connection.Query<MappingModel>(cmd)
+                                   .ToList();
+            }
+            // 例外検知時
+            catch (Exception ex)
+            {
+                // エラーログ出力
+                logger.Error(ex);
+
+                // 処理終了
+                return null;
+            }
+            // 例外検知にかかわらず必ず実行
+            finally
+            {
+                // 接続終了
+                connection.Close();
+            }
+
+            // 処理終了
+            return record;
+        }
+        #endregion
+
+        #region 更新コマンド実行
+        /// =======================================================================
+        /// メソッド名 ： UpdateRecord
+        /// <summary>
+        /// 更新コマンド実効
+        /// </summary>
+        /// <param name="cmd">更新コマンド</param>
+        /// <history>
+        /// =======================================================================
+        /// 更新履歴
+        /// 項番　　　更新日付　　担当者　　更新内容
+        /// 0001　　　2020/03/01  鶴　見    新規作成     
+        /// =======================================================================
+        /// </history>
+        internal void UpdateRecord(string cmd)
+        {
+            // 接続開始
+            connection.Open();
+
+            // 例外検知
+            try
+            {
+                using (SqlCommand command = connection.CreateCommand())
+                using (SqlTransaction transaction = connection.BeginTransaction())
+                {
+                    // トランザクション割り当て
+                    command.Transaction = transaction;
+
+                    // SQLコマンド設定
+                    command.CommandText = cmd;
+
+                    // SQL発行
+                    command.ExecuteNonQuery();
+
+                    // コミット
+                    transaction.Commit();
+                }
+            }
+            // 例外検知時
+            catch (Exception ex)
+            {
+                // ログ出力
+                logger.Error(ex);
+            }
+            // 例外検知にかかわらず必ず実施
+            finally
+            {
+                // 接続終了
+                connection.Close();
+            }
+        }
         #endregion
 
         #endregion

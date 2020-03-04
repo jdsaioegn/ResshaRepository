@@ -27,6 +27,10 @@ namespace ResshaDataBaseTools
     ///         □設定ファイル読み込み
     ///     □Click_btnCon
     ///         □「接続」ボタンを押下イベント
+    ///     □SaveSettingFile
+    ///         □設定ファイル指定要素更新
+    ///     □SaveHiddenSettingFile
+    ///         □隠し設定ファイル更新
     /// </remarks>
     /// <history>
     /// =======================================================================
@@ -40,10 +44,8 @@ namespace ResshaDataBaseTools
         #region グローバル変数
         /// <summary>トレースロガー</summary>
         private readonly log4net.ILog logger = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-        /// <summary>最終接続ユーザ自動ログイン機能フラグ</summary>
-        private string _PreservationUserFlg = "";
         /// <summary>ログインパスワード</summary>
-        private string _Password = "";
+        private string password = "";
         /// <summary>設定オブジェクト</summary>
         SettingFile setting;
 
@@ -98,7 +100,7 @@ namespace ResshaDataBaseTools
                 // ログインユーザ名設定
                 textBoxLoginUserName.Text = _setting.LastUserName;
                 // ログインパスワード設定
-                _Password = _setting.LastUserPassword;
+                password = _setting.LastUserPassword;
             }
             // ログインユーザ記憶機能がOFFである場合
             else if (setting.PreservationUserFlg == "OFF")
@@ -206,42 +208,103 @@ namespace ResshaDataBaseTools
             else
             {
                 // パスワードが設定されていない場合（ログインユーザ記憶機能がOFFである場合）
-                if (string.IsNullOrEmpty(_Password))
+                if (string.IsNullOrEmpty(password))
                 {
                     // パスワード入力専用画面の生成
                     PasswordForm passForm = new PasswordForm();
                     // パスワード入力専用画面表示
                     passForm.ShowDialog();
                     // 接続用パスワード設定
-                    _Password = passForm._Password;
+                    password = passForm.password;
                 }
 
                 // DB接続用文字列設定（SQL Server認証用）
-                cmd = string.Format(DatabaseConnectionCommandTemplate.CONNECTION_SQL_AUTHENTICATION, comboBoxHostName.Text, comboBoxDatabaseName.Text, textBoxLoginUserName.Text, _Password);
+                cmd = string.Format(DatabaseConnectionCommandTemplate.CONNECTION_SQL_AUTHENTICATION, comboBoxHostName.Text, comboBoxDatabaseName.Text, textBoxLoginUserName.Text, password);
             }
 
-            // 指定先DB接続処理が失敗した場合
+            // 上記設定接続文字列を用いた指定先統合DBへの接続確認が失敗した場合
             if (new DbContext().TryConnection(cmd) == false)
             {
                 // パスワード初期化
-                _Password = "";
-                // ユーザへ通知
+                password = "";
+                // ユーザ通知
                 MessageBox.Show("", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 // 処理終了
                 return;
             }
-            // 指定先DB接続処理が成功した場合
+            // 上記設定接続文字列を用いたして先統合DBへの接続確認が成功した場合
             else
             {
+                // 今回の接続方式が「Windows認証」であった場合
+                if (radioButtonWindowsConnection.Checked == true)
+                {
+                    // 設定ファイルの接続方式値を"Windows"で更新
+                    SaveSettingFile("ConnectionType", "Windows");
+                }
+                // 今回の接続方式が「SQL Server認証」であった場合
+                else
+                {
+                    // 設定ファイルの接続方式値を"SQL"で更新
+                    SaveSettingFile("ConnectionType", "SQL");
+                }
+
                 // 隠し設定ファイルを今回のログイン情報で更新
-                SaveHiddenSettingFile(textBoxLoginUserName.Text, _Password);
+                SaveHiddenSettingFile(textBoxLoginUserName.Text, password);
             }
+
+            // 各機能共通画面生成
+            PortalForm portalForm = new PortalForm();
+
+            // 本画面非表示（本画面を閉じたいが親ウィンドウであるため非表示化で対応）
+            this.Visible = false;
+
+            // 各機能共通画面表示
+            portalForm.ShowDialog();
+
+            // 本画面を閉じる
+            this.Close();
         }
         #endregion
 
         #endregion
 
         #region メソッド
+
+        #region 設定ファイル指定要素更新
+        /// =======================================================================
+        /// メソッド名 ： SaveSettingFile
+        /// <summary>
+        /// 設定ファイル指定要素更新
+        /// </summary>
+        /// <remarks>
+        /// □引数で取得した要素に対して指定値による更新を行う。
+        /// </remarks>
+        /// <param name="node">更新対象要素</param>
+        /// <param name="value">更新値</param>
+        /// <history>
+        /// =======================================================================
+        /// 更新履歴
+        /// 項番　　　更新日付　　担当者　　更新内容
+        /// 0001　　　2020/03/01  鶴　見    新規作成     
+        /// =======================================================================
+        /// </history>
+        private void SaveSettingFile(string node, string value)
+        {
+            // 設定ファイルパス指定
+            XElement xml = XElement.Load(@".\Config.xml");
+
+            // Config要素配下全取得
+            foreach (XElement nodes in from item in xml.Elements("Config") select item)
+            {
+                // 指定要素の設定値を更新
+                nodes.Element(node).Value = value;
+
+                // 設定ファイル保存
+                xml.Save(@".\Config.xml");
+            }
+        }
+
+        #endregion
 
         #region 隠し設定ファイル更新
         /// =======================================================================
@@ -291,7 +354,7 @@ namespace ResshaDataBaseTools
         }
 
         #endregion
-
+         
         #endregion
 
         #region 設定ファイルオブジェクト
