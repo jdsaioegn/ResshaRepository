@@ -182,6 +182,29 @@ namespace ResshaDataBaseTools
 
         #region メソッド
 
+        #region 共通
+
+        #region レコード更新処理
+        private void GetRecord(DateTime date)
+        {
+            // 列車レコード更新
+            RESSHA_RECORD = _DbContext.SelectRecord<ResshaRecordModel>(string.Format(SqlCommandTemplate.SELECT_EIGYO_RECORD, date.ToShortDateString().Replace("/", "")))
+                                      .OrderBy(p => p.SokoJunjo)
+                                      .OrderBy(p => p.ResshaNo)
+                                      .ToList();
+
+            // 名称レコード更新
+            MASTER_RECORD = _DbContext.SelectRecord<MasterRecordModel>(string.Format(SqlCommandTemplate.SELECT_MASTER_RECORD, date.ToShortDateString().Replace("/", "")));
+
+            // 営業レコード更新
+            EIGYO_RECORD = _DbContext.SelectRecord<EigyoRecordModel>(string.Format(SqlCommandTemplate.SELECT_EIGYO_RECORD, date.ToShortDateString().Replace("/", "")));
+
+            // 運用レコード更新
+            UNYO_RECORD = _DbContext.SelectRecord<UnyoRecordModel>(string.Format(SqlCommandTemplate.SELECT_UNYO_RECORD, date.AddDays(-2).ToShortDateString().Replace("/", ""),
+                                                                                                                        date.AddDays(+2).ToShortDateString().Replace("/", "")));
+        }
+        #endregion
+
         #region 実施列車一覧表示
         private void DispResshaDataGridView()
         {
@@ -197,7 +220,7 @@ namespace ResshaDataBaseTools
 
             // 実施列車レコードをもとに列車番号毎にてグルーピングを行ったレコードリストを取得
             List<IGrouping<string, ResshaRecordModel>> resshaRecords = RESSHA_RECORD.GroupBy(p => p.ResshaNo)
-                                                                                 .ToList();
+                                                                                    .ToList();
 
             // 
             foreach (IGrouping<string, ResshaRecordModel> records in resshaRecords)
@@ -218,7 +241,7 @@ namespace ResshaDataBaseTools
                 int cntShuchaku = records.Count() - 1;
 
                 // 上下カラム設定値
-                string joge= "";
+                string joge = "";
                 // 走行状態カラム設定値
                 string sokoJotai = "";
                 // 始発駅名カラム設定値
@@ -370,9 +393,6 @@ namespace ResshaDataBaseTools
                     );
             }
 
-            // 特殊併合列車存在フラグ
-            bool tokushu = false;
-
             // 表全レコードに対して繰り返し
             foreach (DataGridViewRow row in dataGridViewResshaList.Rows)
             {
@@ -385,20 +405,161 @@ namespace ResshaDataBaseTools
                         // 当該セルをボタンカラムへ変更
                         dataGridViewResshaList[i, row.Index] = new DataGridViewButtonCell() { Value = dataGridViewResshaList[i, row.Index].Value };
 
-                        // 特殊併合列車が1列車以上存在する場合特殊併合列車存在フラグを活性化
-                        if (i == 11) tokushu = true;
+                        // 特殊併合列車が1列車以上存在する「特併列車」非表示化
+                        dataGridViewResshaList.Columns.GetLastColumn(DataGridViewElementStates.Visible, DataGridViewElementStates.None).Visible = false;
                     }
                 }
             }
-
-            // 特殊併合列車存在フラグが非活性である場合、特殊併合列車列を非表示化
-            if (tokushu == false) dataGridViewResshaList.Columns.GetLastColumn(DataGridViewElementStates.Visible, DataGridViewElementStates.None).Visible = false;
 
             // 表出力スタイル（文字出力位置）調整
             dataGridViewResshaList.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
 
             // 表出力スタイル（セル幅自動調整）調整
             dataGridViewResshaList.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
+        }
+        #endregion
+
+        #endregion
+
+        #region 実績初期化
+
+        #region 運行管理更新再現
+        /// =======================================================================
+        /// メソッド名 ： UnkoKanriUpdate
+        /// <summary>
+        /// 運行管理更新再現
+        /// </summary>
+        /// <param name="date">日付</param>
+        /// <returns>運行管理更新再現反映済み実施列車レコード</returns>
+        /// <history>
+        /// =======================================================================
+        /// 更新履歴
+        /// 項番　　　更新日付　　担当者　　更新内容
+        /// 0001　　　2020/03/01  鶴　見    新規作成     
+        /// =======================================================================
+        /// </history>
+        private List<IGrouping<string, ResshaRecordModel>> UnkoKanriUpdate(DateTime date)
+        {
+            // 対象日付を列車施工日とする実施列車レコードを取得（統合データへ自動的にデータ格納）
+            RESSHA_RECORD = _DbContext.SelectRecord<ResshaRecordModel>(string.Format(SqlCommandTemplate.SELECT_RESSHA_RECORD, date.ToShortDateString().Replace("/", "")));
+
+            // 統合データより上記取得レコードを取得
+            List<IGrouping<string, ResshaRecordModel>> ResshaList = RESSHA_RECORD.OrderBy(p => p.SokoJunjo)
+                                                                                 .GroupBy(p => p.ResshaNo)
+                                                                                 .OrderBy(p => p.Key)
+                                                                                 .ToList();
+
+            // 統合データより列車運用レコードを取得
+            List<UnyoRecordModel> UnyoList = UNYO_RECORD;
+
+            // 実施列車1レコード毎に繰り返し
+            foreach (IGrouping<string, ResshaRecordModel> records in ResshaList)
+            {
+                // 当日線区コード設定用
+                string _TojitsuSenkuCd = string.Empty;
+
+                // 当該列車の始発レコードを指標として設定
+                ResshaRecordModel record = records.First();
+
+                // 実施列車の線区コードにより設定
+                switch (record.SenkuCd)
+                {
+                    // 東北線区の場合
+                    case "01":
+                        // 小山運が始発or終着の場合
+                        if (record.ShihatsuEkiCd == "007" || record.ShuchakuEkiCd == "007") _TojitsuSenkuCd = "17";
+
+                        // 青幹所が始発or終着の場合
+                        if (record.ShihatsuEkiCd == "031" || record.ShuchakuEkiCd == "031") _TojitsuSenkuCd = "21";
+
+                        // 函総車が始発or終着の場合
+                        if (record.ShihatsuEkiCd == "232" || record.ShuchakuEkiCd == "232") _TojitsuSenkuCd = "22";
+
+                        // 上記に該当しない場合
+                        if (string.IsNullOrEmpty(_TojitsuSenkuCd)) _TojitsuSenkuCd = "01";
+
+                        // 抜け
+                        break;
+
+                    // 上越線区の場合
+                    case "02":
+                        // ガーラが始発or終着の場合
+                        if (record.ShihatsuEkiCd == "037" || record.ShuchakuEkiCd == "037") _TojitsuSenkuCd = "18";
+
+                        // 上記に該当しない場合
+                        if (string.IsNullOrEmpty(_TojitsuSenkuCd)) _TojitsuSenkuCd = "02";
+
+                        // 抜け
+                        break;
+
+                    // 上越線区の場合
+                    case "05":
+                        // 上越線区のみ線区そのままではなく新庄線区を選択する
+                        _TojitsuSenkuCd = "19";
+
+                        // 抜け
+                        break;
+
+                    // 上記以外の線区の場合
+                    default:
+                        // 計画系の線区コードを設定
+                        _TojitsuSenkuCd = record.SenkuCd;
+
+                        // 抜け
+                        break;
+                }
+
+                // 当日線区コード更新
+                records.ToList()
+                       .ForEach(p => p.TojitsuSenkuCd = _TojitsuSenkuCd);
+
+                // 足列車の取得
+                UnyoRecordModel Unyo = UnyoList.Where(p => p.ResshaSekoDate == int.Parse(date.ToShortDateString().Replace("/", "")))
+                                               .Where(p => p.ResshaNo == record.ResshaNo)
+                                               .Where(p => p.HenseiKbn == 1)
+                                               .FirstOrDefault();
+
+                // 足列車が存在しない場合
+                if (Unyo == null)
+                {
+                    // 次の列車へ
+                    continue;
+                }
+
+                // 先頭足列車の取得
+                UnyoRecordModel TopUnyo = UnyoList.Where(p => p.SekoDate == Unyo.SekoDate)
+                                                  .Where(p => p.SharyoUnyoNo == Unyo.SharyoUnyoNo)
+                                                  .Where(p => p.AshiResshaJunjo == 1)
+                                                  .FirstOrDefault();
+
+                // 先頭足列車が存在しない場合
+                if (TopUnyo == null)
+                {
+                    // 終了
+                    return null;
+                }
+
+                // 足列車区分の設定
+                records.ToList()
+                       .ForEach(p => p.AshiResshaKbn = _Utility.GetYoubiCd(DateTime.Parse(TopUnyo.ResshaSekoDate.ToString().Insert(4, "/").Insert(7, "/"))));
+
+                // ダイヤ管理日の基準日
+                DateTime _DiagramKanriDate = date;
+
+                // 当日のAM5時までに始発する場合
+                if (_Utility.GetTime(record.JisshiHatsuSotaiDate, record.JisshiHatsuTime) < 18000)
+                {
+                    // ダイヤ管理日を前日日付に設定
+                    _DiagramKanriDate = _DiagramKanriDate.AddDays(-1);
+                }
+
+                // ダイヤ管理日の設定
+                records.ToList()
+                       .ForEach(p => p.DiagramKanriDate = _Utility.GetYoubiCd(_DiagramKanriDate));
+            }
+
+            // 終了
+            return ResshaList;
         }
         #endregion
 
@@ -629,6 +790,16 @@ namespace ResshaDataBaseTools
         }
         #endregion
 
+        #endregion
+
+        #region 実績更新
+
+        #endregion
+
+        #endregion
+
+
+
         #region 共通更新
         private List<IGrouping<string, ResshaRecordModel>> Initialization(DateTime date)
         {
@@ -683,150 +854,6 @@ namespace ResshaDataBaseTools
         }
         #endregion
 
-        #region 
 
-        #endregion
-
-        #region 運行管理更新再現
-        /// =======================================================================
-        /// メソッド名 ： UnkoKanriUpdate
-        /// <summary>
-        /// 運行管理更新再現
-        /// </summary>
-        /// <param name="date">日付</param>
-        /// <returns>運行管理更新再現反映済み実施列車レコード</returns>
-        /// <history>
-        /// =======================================================================
-        /// 更新履歴
-        /// 項番　　　更新日付　　担当者　　更新内容
-        /// 0001　　　2020/03/01  鶴　見    新規作成     
-        /// =======================================================================
-        /// </history>
-        private List<IGrouping<string, ResshaRecordModel>> UnkoKanriUpdate(DateTime date)
-        {
-            // 対象日付を列車施工日とする実施列車レコードを取得（統合データへ自動的にデータ格納）
-            RESSHA_RECORD = _DbContext.SelectRecord<ResshaRecordModel>(string.Format(SqlCommandTemplate.SELECT_RESSHA_RECORD, date.ToShortDateString().Replace("/", "")));
-
-            // 統合データより上記取得レコードを取得
-            List<IGrouping<string, ResshaRecordModel>> ResshaList = RESSHA_RECORD.OrderBy(p => p.SokoJunjo)
-                                                                                 .GroupBy(p => p.ResshaNo)
-                                                                                 .OrderBy(p => p.Key)
-                                                                                 .ToList();
-
-            // 統合データより列車運用レコードを取得
-            List<UnyoRecordModel> UnyoList = UNYO_RECORD;
-
-            // 実施列車1レコード毎に繰り返し
-            foreach (IGrouping<string, ResshaRecordModel> records in ResshaList)
-            {
-                // 当日線区コード設定用
-                string _TojitsuSenkuCd = string.Empty;
-
-                // 当該列車の始発レコードを指標として設定
-                ResshaRecordModel record = records.First();
-
-                // 実施列車の線区コードにより設定
-                switch (record.SenkuCd)
-                {
-                    // 東北線区の場合
-                    case "01":
-                        // 小山運が始発or終着の場合
-                        if (record.ShihatsuEkiCd == "007" || record.ShuchakuEkiCd == "007") _TojitsuSenkuCd = "17";
-
-                        // 青幹所が始発or終着の場合
-                        if (record.ShihatsuEkiCd == "031" || record.ShuchakuEkiCd == "031") _TojitsuSenkuCd = "21";
-
-                        // 函総車が始発or終着の場合
-                        if (record.ShihatsuEkiCd == "232" || record.ShuchakuEkiCd == "232") _TojitsuSenkuCd = "22";
-
-                        // 上記に該当しない場合
-                        if (string.IsNullOrEmpty(_TojitsuSenkuCd)) _TojitsuSenkuCd = "01";
-
-                        // 抜け
-                        break;
-
-                    // 上越線区の場合
-                    case "02":
-                        // ガーラが始発or終着の場合
-                        if (record.ShihatsuEkiCd == "037" || record.ShuchakuEkiCd == "037") _TojitsuSenkuCd = "18";
-
-                        // 上記に該当しない場合
-                        if (string.IsNullOrEmpty(_TojitsuSenkuCd)) _TojitsuSenkuCd = "02";
-
-                        // 抜け
-                        break;
-
-                    // 上越線区の場合
-                    case "05":
-                        // 上越線区のみ線区そのままではなく新庄線区を選択する
-                        _TojitsuSenkuCd = "19";
-
-                        // 抜け
-                        break;
-
-                    // 上記以外の線区の場合
-                    default:
-                        // 計画系の線区コードを設定
-                        _TojitsuSenkuCd = record.SenkuCd;
-
-                        // 抜け
-                        break;
-                }
-
-                // 当日線区コード更新
-                records.ToList()
-                       .ForEach(p => p.TojitsuSenkuCd = _TojitsuSenkuCd);
-
-                // 足列車の取得
-                UnyoRecordModel Unyo = UnyoList.Where(p => p.ResshaSekoDate == int.Parse(date.ToShortDateString().Replace("/", "")))
-                                               .Where(p => p.ResshaNo == record.ResshaNo)
-                                               .Where(p => p.HenseiKbn == 1)
-                                               .FirstOrDefault();
-
-                // 足列車が存在しない場合
-                if (Unyo == null)
-                {
-                    // 次の列車へ
-                    continue;
-                }
-
-                // 先頭足列車の取得
-                UnyoRecordModel TopUnyo = UnyoList.Where(p => p.SekoDate == Unyo.SekoDate)
-                                                  .Where(p => p.SharyoUnyoNo == Unyo.SharyoUnyoNo)
-                                                  .Where(p => p.AshiResshaJunjo == 1)
-                                                  .FirstOrDefault();
-
-                // 先頭足列車が存在しない場合
-                if (TopUnyo == null)
-                {
-                    // 終了
-                    return null;
-                }
-
-                // 足列車区分の設定
-                records.ToList()
-                       .ForEach(p => p.AshiResshaKbn = _Utility.GetYoubiCd(DateTime.Parse(TopUnyo.ResshaSekoDate.ToString().Insert(4, "/").Insert(7, "/"))));
-
-                // ダイヤ管理日の基準日
-                DateTime _DiagramKanriDate = date;
-
-                // 当日のAM5時までに始発する場合
-                if (_Utility.GetTime(record.JisshiHatsuSotaiDate, record.JisshiHatsuTime) < 18000)
-                {
-                    // ダイヤ管理日を前日日付に設定
-                    _DiagramKanriDate = _DiagramKanriDate.AddDays(-1);
-                }
-
-                // ダイヤ管理日の設定
-                records.ToList()
-                       .ForEach(p => p.DiagramKanriDate = _Utility.GetYoubiCd(_DiagramKanriDate));
-            }
-
-            // 終了
-            return ResshaList;
-        }
-        #endregion
-
-        #endregion
     }
 }

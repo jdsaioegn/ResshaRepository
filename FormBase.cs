@@ -49,11 +49,11 @@ namespace ResshaDataBaseTools
 
         #region メソッド
 
-        #region マスタレコード抽出
+        #region 名称取得
         /// =======================================================================
         /// メソッド名 ： GetMasterValue
         /// <summary>
-        /// マスタレコード抽出
+        /// 名称取得
         /// </summary>
         /// <remarks>
         /// □引数で指定された種別コードと名称コードから対象名称を抽出する。
@@ -68,7 +68,7 @@ namespace ResshaDataBaseTools
         /// 0001　　　2020/03/01  鶴　見    新規作成     
         /// =======================================================================
         /// </history>
-        private protected string GetMasterValue(string shubetsuCd, string meishoCd)
+        protected string GetMasterValue(string shubetsuCd, string meishoCd)
         {
             // 指定した種別コードと名称コードに該当するマスタ値を返却
             return MASTER_RECORD.Where(p => p.ShubetsuCd == shubetsuCd)
@@ -83,7 +83,7 @@ namespace ResshaDataBaseTools
         /// =======================================================================
         /// メソッド名 ： GetEigyoDictionary
         /// <summary>
-        /// 営業種別抽出
+        /// 営業取得
         /// </summary>
         /// <remarks>
         /// □引数で取得した列車番号に関連する営業種別を全て返却する。
@@ -97,7 +97,7 @@ namespace ResshaDataBaseTools
         /// 0001　　　2020/03/01  鶴　見    新規作成     
         /// =======================================================================
         /// </history>
-        private protected List<Dictionary<string, string>> GetEigyoDictionary(string resshaNo)
+        protected List<Dictionary<string, string>> GetEigyoDictionary(string resshaNo)
         {
             // 返却用営業種別連想配列生成
             List<Dictionary<string, string>> dictionary = new List<Dictionary<string, string>>();
